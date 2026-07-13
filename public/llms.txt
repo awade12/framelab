@@ -1,0 +1,68 @@
+# FrameLab App Store Screenshot Generator
+
+> FrameLab is a browser-based editor for creating professional App Store and Google Play screenshots. It runs entirely client-side with multi-device layouts, templates, status bars, rich text, overlays, and batch export.
+
+GitHub: https://github.com/awade12/framelab
+Maintainer: Andrew Wade (awade75009@gmail.com)
+License: Proprietary — All Rights Reserved
+
+## What FrameLab Does
+
+FrameLab lets mobile developers and marketers design polished app store screenshots in the browser. Users pick device frames, upload app screenshots, style backgrounds and text, and export pixel-perfect PNGs at required store resolutions. No server uploads, no accounts, no watermarks.
+
+## Look & Feel
+
+- Dark charcoal editor (`#0a0a0a`) with zinc-muted controls and white preview cards
+- Three-panel layout: collapsible left toolbar, center screenshot carousel, right inspector
+- Real-time preview with drag-and-drop for text, devices, and overlays
+- Quick actions in the left sidebar: templates, undo/redo, duplicate, apply style to all
+- Modals for fonts, templates, export progress, and post-export GitHub support
+
+## Core Features
+
+### Device Frames
+- 6 mockups: iPhone 15 Pro Max, iPhone 15 Pro, iPhone 14, iPad Pro 12.9", Samsung Galaxy S24 Ultra, Samsung Galaxy Tab S9
+- Multiple colors per device
+- Multi-device layouts with independent screen images and transforms
+- Cross-screen device overflow between adjacent screenshots
+- Flat 2D and 3D rendering with rotation controls
+- Frameless mode and in-screen zoom/pan
+- Status bar overlay with time, battery, signal, Wi‑Fi, and light/dark style
+
+### Backgrounds & Text
+- 60+ solid color presets, custom picker, and 6 gradient presets
+- Rich text editor with bold, italic, underline, color, alignment, and rounded highlights
+- Google Fonts catalog with categories, search, and lazy loading
+- Drag-to-reposition headlines and subheadlines
+
+### Overlays & Layout
+- Unlimited overlay images with resize, rotation, layer order, and shadows
+- 8 layout presets and manual device positioning controls
+
+### Workflow
+- Starter templates for common App Store sets
+- Multiple projects with localStorage auto-save
+- Undo/redo, duplicate screen, apply style to all
+
+### Export
+- Batch export as ZIP or single PNG
+- App Store iPhone sizes (6.9", 6.7", landscape) at exact Apple dimensions
+- iPad and Play Store phone sizes
+- Quality tiers for non-App Store exports: Standard, High (2×), Ultra (3×)
+- Export progress modal and pixel-perfect canvas rendering
+
+## Tech Stack
+
+- React 19, TanStack Router, Tailwind CSS 4, Vite 7, Vitest, Bun
+- JSZip for batch export, Canvas API for rendering
+
+## Running Locally
+
+```
+git clone https://github.com/awade12/framelab.git
+cd framelab
+bun install
+bun run dev
+```
+
+Available at http://localhost:5173

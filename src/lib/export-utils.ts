@@ -7,7 +7,7 @@ import type {
   ExportQuality,
   StatusBarConfig,
 } from "../types";
-import { gradientPresets } from "../constants";
+import { resolveScreenshotGradient } from "./gradient-utils";
 import { drawRichText } from "./rich-text-canvas";
 import { getDeviceColorById, getDeviceSpecById } from "./device-instances";
 import { getRenderableDevicesForScreenshot } from "./device-overflow";
@@ -24,6 +24,7 @@ interface ExportOptions {
   previewDimensions: { width: number; height: number };
   headlineFontSize: number;
   subheadlineFontSize: number;
+  customGradientPresets?: import("../types").GradientPreset[];
   onProgress?: (update: ExportProgressUpdate) => void;
 }
 
@@ -52,40 +53,47 @@ const downloadFile = (dataURL: string, filename: string) => {
   link.click();
 };
 
-/**
- * Download multiple files as ZIP
- */
-const downloadAsZip = async (files: { name: string; data: string }[]) => {
-  const zip = new JSZip();
-  
-  for (const file of files) {
-    const blob = dataURLtoBlob(file.data);
-    zip.file(file.name, blob);
-  }
-  
-  const content = await zip.generateAsync({ type: "blob" });
-  const url = URL.createObjectURL(content);
-  
-  const link = document.createElement("a");
-  link.download = "appstore-screenshots.zip";
-  link.href = url;
-  link.click();
-  
-  // Clean up
-  URL.revokeObjectURL(url);
-};
-
 export const downloadExportFiles = async (
   files: { name: string; data: string }[],
+  options?: {
+    projectFile?: { name: string; content: string; assets?: Map<string, Blob> };
+    archiveName?: string;
+  },
 ) => {
-  if (files.length === 1) {
+  const projectFile = options?.projectFile;
+  const archiveName = options?.archiveName ?? "appstore-screenshots.zip";
+  const shouldZip = files.length > 1 || Boolean(projectFile);
+
+  if (!shouldZip && files.length === 1) {
     downloadFile(files[0].data, files[0].name);
     return;
   }
 
-  if (files.length > 1) {
-    await downloadAsZip(files);
+  const zip = new JSZip();
+
+  for (const file of files) {
+    const blob = dataURLtoBlob(file.data);
+    zip.file(file.name, blob);
   }
+
+  if (projectFile) {
+    zip.file(projectFile.name, projectFile.content);
+    if (projectFile.assets) {
+      for (const [path, blob] of projectFile.assets.entries()) {
+        zip.file(path, blob);
+      }
+    }
+  }
+
+  const content = await zip.generateAsync({ type: "blob" });
+  const url = URL.createObjectURL(content);
+
+  const link = document.createElement("a");
+  link.download = archiveName;
+  link.href = url;
+  link.click();
+
+  URL.revokeObjectURL(url);
 };
 
 // --- 3D Export Helpers ---
@@ -1198,6 +1206,7 @@ export const renderExportFiles = async ({
   previewDimensions,
   headlineFontSize,
   subheadlineFontSize,
+  customGradientPresets = [],
   onProgress,
 }: ExportOptions): Promise<{ name: string; data: string }[]> => {
   const report = (update: ExportProgressUpdate) => {
@@ -1261,12 +1270,18 @@ export const renderExportFiles = async ({
 
     // Draw background
     if (screenshot.backgroundMode === "gradient") {
-      const preset =
-        gradientPresets.find((p) => p.id === screenshot.gradientPresetId) ??
-        gradientPresets[0];
-      const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-      gradient.addColorStop(0, preset.from);
-      gradient.addColorStop(1, preset.to);
+      const { from, to, angle } = resolveScreenshotGradient(
+        screenshot,
+        customGradientPresets,
+      );
+      const radians = ((angle - 90) * Math.PI) / 180;
+      const x1 = canvas.width / 2 - (Math.cos(radians) * canvas.width) / 2;
+      const y1 = canvas.height / 2 - (Math.sin(radians) * canvas.height) / 2;
+      const x2 = canvas.width / 2 + (Math.cos(radians) * canvas.width) / 2;
+      const y2 = canvas.height / 2 + (Math.sin(radians) * canvas.height) / 2;
+      const gradient = ctx.createLinearGradient(x1, y1, x2, y2);
+      gradient.addColorStop(0, from);
+      gradient.addColorStop(1, to);
       ctx.fillStyle = gradient;
     } else {
       ctx.fillStyle = screenshot.backgroundColor;

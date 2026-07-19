@@ -26,7 +26,6 @@
 export { CanvasPreview } from "./CanvasPreview";
 
 // Sub-components
-export { Toolbar } from "./Toolbar";
 export { ScreenshotCard } from "./ScreenshotCard";
 export { TextElement } from "./TextElement";
 export { OverlayImage } from "./OverlayImage";

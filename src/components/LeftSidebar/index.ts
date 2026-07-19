@@ -15,7 +15,6 @@
  * // Using individual components
  * import {
  *   SidebarSection,
- *   SelectionButton,
  *   ColorButton,
  * } from './components/LeftSidebar';
  */
@@ -26,7 +25,7 @@ export { LeftSidebar } from "./LeftSidebar";
 // Sub-components
 export { SidebarHeader } from "./SidebarHeader";
 export { SidebarSection } from "./SidebarSection";
-export { SelectionButton } from "./SelectionButton";
+export { SidebarSelect } from "./SidebarSelect";
 export { ColorButton } from "./ColorButton";
 export { DeviceSection } from "./DeviceSection";
 export { ExportSection } from "./ExportSection";

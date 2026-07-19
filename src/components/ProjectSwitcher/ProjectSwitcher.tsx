@@ -211,7 +211,7 @@ export const ProjectSwitcher = () => {
       {/* Trigger button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-md bg-[#2a2a2a] hover:bg-[#333] text-gray-300 text-sm transition-colors"
+        className="flex w-full items-center justify-between gap-2 rounded-md px-1 py-1.5 text-left text-[13px] text-zinc-300 transition-colors hover:text-white"
       >
         <div className="flex items-center gap-2 min-w-0">
           <FolderOpen className="w-4 h-4 text-zinc-400 flex-shrink-0" />

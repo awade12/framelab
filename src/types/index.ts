@@ -41,6 +41,13 @@ export type GradientPreset = {
   label: string;
   from: string;
   to: string;
+  angle?: number;
+};
+
+export type CustomGradient = {
+  from: string;
+  to: string;
+  angle: number;
 };
 
 export type SolidColorPreset = {
@@ -59,6 +66,8 @@ export type ImageOverlay = {
   layer: "behind" | "front";
   rotation: number;
   shadow: ShadowConfig;
+  hidden?: boolean;
+  locked?: boolean;
 };
 
 export type DeviceStyle = "flat" | "3d";
@@ -94,27 +103,40 @@ export type DeviceInstance = {
   screenOffsetY: number;
   showFrame: boolean;
   statusBar: StatusBarConfig;
+  hidden?: boolean;
+  locked?: boolean;
 };
 
 export type Screenshot = {
   id: string;
+  label?: string;
+  includeInExport?: boolean;
   headline: string;
   subheadline: string;
   backgroundColor: string;
   backgroundMode: "solid" | "gradient" | "image";
   gradientPresetId: string | null;
+  customGradient?: CustomGradient | null;
   textColor: string;
   headlineX: number;
   headlineY: number;
   headlineWidth: number;
+  headlineHidden?: boolean;
+  headlineLocked?: boolean;
   subheadlineX: number;
   subheadlineY: number;
   subheadlineWidth: number;
+  subheadlineHidden?: boolean;
+  subheadlineLocked?: boolean;
   fontFamily: string;
   overlayImages: ImageOverlay[];
   devices: DeviceInstance[];
   activeDeviceId: string;
 };
+
+export type ExportScope = "all" | "active" | "checked";
+
+export type CanvasZoom = "fit" | 0.75 | 1 | 1.25;
 
 export type SelectedElement = {
   type: "headline" | "subheadline" | "image" | "device";
@@ -161,4 +183,5 @@ export type Project = {
   headlineFontSize: number;
   /** Subheadline font size */
   subheadlineFontSize: number;
+  customGradientPresets?: GradientPreset[];
 };

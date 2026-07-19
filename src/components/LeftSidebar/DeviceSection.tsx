@@ -1,48 +1,18 @@
-/**
- * DeviceSection Component
- *
- * Device and color selection section.
- */
-
 import type { DeviceSpec } from "../../types";
-import { SidebarSection } from "./SidebarSection";
-import { SelectionButton } from "./SelectionButton";
 import { ColorButton } from "./ColorButton";
+import { SidebarSection } from "./SidebarSection";
+import { SidebarSelect } from "./SidebarSelect";
 import { STYLES } from "./constants";
 
 interface DeviceSectionProps {
-  /** Available devices */
   devices: DeviceSpec[];
-  /** Currently selected device ID */
   selectedDeviceId: string;
-  /** Currently selected color ID */
   selectedColorId: string;
-  /** Currently selected device object */
   selectedDevice: DeviceSpec;
-  /** Handler for device selection */
   onDeviceSelect: (deviceId: string, defaultColorId: string) => void;
-  /** Handler for color selection */
   onColorSelect: (colorId: string) => void;
 }
 
-/**
- * DeviceSection - Device and color picker section
- *
- * Displays a list of available devices and color options
- * for the currently selected device.
- *
- * @param props - Component props
- *
- * @example
- * <DeviceSection
- *   devices={devices}
- *   selectedDeviceId={selectedDeviceId}
- *   selectedColorId={selectedColorId}
- *   selectedDevice={selectedDevice}
- *   onDeviceSelect={(id, colorId) => { ... }}
- *   onColorSelect={(colorId) => { ... }}
- * />
- */
 export const DeviceSection = ({
   devices,
   selectedDeviceId,
@@ -52,21 +22,23 @@ export const DeviceSection = ({
   onColorSelect,
 }: DeviceSectionProps) => (
   <SidebarSection title="Device">
-    {/* Device list */}
-    <div className={STYLES.buttonList}>
+    <SidebarSelect
+      value={selectedDeviceId}
+      aria-label="Device"
+      onChange={(deviceId) => {
+        const device = devices.find((item) => item.id === deviceId);
+        if (device) onDeviceSelect(deviceId, device.colors[0].id);
+      }}
+    >
       {devices.map((device) => (
-        <SelectionButton
-          key={device.id}
-          label={device.label}
-          isSelected={selectedDeviceId === device.id}
-          onClick={() => onDeviceSelect(device.id, device.colors[0].id)}
-        />
+        <option key={device.id} value={device.id} className="bg-[#1a1a1a]">
+          {device.label}
+        </option>
       ))}
-    </div>
+    </SidebarSelect>
 
-    {/* Color picker */}
-    <div className="mt-3">
-      <p className="text-xs text-gray-400 mb-2">Color</p>
+    <div className="mt-3 flex items-center justify-between gap-3">
+      <span className="text-[11px] text-zinc-600">Color</span>
       <div className={STYLES.colorPicker}>
         {selectedDevice.colors.map((color) => (
           <ColorButton

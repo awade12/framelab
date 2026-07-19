@@ -7,6 +7,7 @@
 import type { Screenshot } from "../../types";
 import { SidebarSection } from "./SidebarSection";
 import { RichTextEditor } from "../RichTextEditor";
+import { AlignControls } from "./AlignControls";
 
 interface ContentSectionProps {
   /** Active screenshot data */
@@ -28,6 +29,8 @@ export const ContentSection = ({
 }: ContentSectionProps) => (
   <SidebarSection title="Content">
     <div className="space-y-4">
+      <AlignControls />
+
       <div>
         <label className="block text-xs text-gray-400 mb-1">Headline</label>
         <RichTextEditor

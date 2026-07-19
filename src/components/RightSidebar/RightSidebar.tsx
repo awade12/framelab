@@ -1,18 +1,7 @@
-/**
- * RightSidebar Component
- *
- * Main sidebar containing position presets, layout, content, appearance, and overlay image controls.
- *
- * Features:
- * - Position presets for quick device positioning
- * - Device layout controls (size, position, rotation, shadow)
- * - Text content editors (headline, subheadline)
- * - Appearance settings (background, colors, fonts)
- * - Overlay image management
- */
-
+import { useState } from "react";
 import { useEditor } from "../../context/EditorContext";
 import { gradientPresets, solidColorPresets } from "../../constants";
+import type { DeviceInstance } from "../../types";
 import { DeviceInstancesSection } from "./DeviceInstancesSection";
 import { ScreenshotImageSection } from "./ScreenshotImageSection";
 import { StatusBarSection } from "./StatusBarSection";
@@ -20,18 +9,13 @@ import { PositionPresets } from "./PositionPresets";
 import { LayoutSection } from "./LayoutSection";
 import { ContentSection } from "./ContentSection";
 import { AppearanceSection } from "./AppearanceSection";
-import { OverlayImagesSection } from "./OverlayImagesSection";
+import { LayersTabPanel } from "./LayersTabPanel";
+import { SidebarTabs, type RightSidebarTab } from "./SidebarTabs";
 import { STYLES } from "./constants";
 
-/**
- * RightSidebar - Main properties sidebar
- *
- * Provides all editing controls for the active screenshot.
- *
- * @example
- * <RightSidebar />
- */
 export const RightSidebar = () => {
+  const [activeTab, setActiveTab] = useState<RightSidebarTab>("device");
+
   const {
     activeScreenshot,
     activeDevice,
@@ -46,118 +30,115 @@ export const RightSidebar = () => {
     overlayImageInputRef,
     addOverlayImage,
     addOverlayImages,
-    selectedElement,
-    setSelectedElement,
-    removeOverlayImage,
-    updateOverlayImageSize,
-    updateOverlayImageLayer,
-    updateOverlayImageRotation,
-    updateOverlayImageShadow,
     addDevice,
     selectDevice,
     removeDevice,
     bringDeviceForward,
     sendDeviceBackward,
-    bringImageForward,
-    sendImageBackward,
+    customGradientPresets,
+    saveCustomGradientPreset,
   } = useEditor();
+
+  const updateActiveDevice = (updates: Partial<DeviceInstance>) => {
+    if (!activeDevice) return;
+    updateActiveScreenshot({
+      devices: activeScreenshot.devices.map((device) =>
+        device.id === activeDevice.id ? { ...device, ...updates } : device,
+      ),
+    });
+  };
 
   return (
     <aside className={STYLES.sidebar}>
-      <div className={STYLES.content}>
-        <DeviceInstancesSection
-          screenshot={activeScreenshot}
-          onAddDevice={addDevice}
-          onSelectDevice={selectDevice}
-          onRemoveDevice={removeDevice}
-          onBringForward={bringDeviceForward}
-          onSendBackward={sendDeviceBackward}
-        />
+      <SidebarTabs activeTab={activeTab} onTabChange={setActiveTab} />
 
-        {activeDevice ? (
+      <div className={STYLES.content} role="tabpanel">
+        {activeTab === "device" && (
           <>
-            <ScreenshotImageSection
-              device={activeDevice}
-              fileInputRef={fileInputRef}
-              onFileUpload={handleFileUpload}
-              onUpdateDevice={(updates) =>
-                updateActiveScreenshot({
-                  devices: activeScreenshot.devices.map((device) =>
-                    device.id === activeDevice.id ? { ...device, ...updates } : device,
-                  ),
-                })
-              }
-            />
-
-            <StatusBarSection
-              device={activeDevice}
-              onUpdateDevice={(updates) =>
-                updateActiveScreenshot({
-                  devices: activeScreenshot.devices.map((device) =>
-                    device.id === activeDevice.id ? { ...device, ...updates } : device,
-                  ),
-                })
-              }
-            />
-
-            <PositionPresets
-              device={activeDevice}
-              onUpdateDevice={(updates) =>
-                updateActiveScreenshot({
-                  devices: activeScreenshot.devices.map((device) =>
-                    device.id === activeDevice.id ? { ...device, ...updates } : device,
-                  ),
-                })
-              }
-            />
-
-            <LayoutSection
-              device={activeDevice}
+            <DeviceInstancesSection
               screenshot={activeScreenshot}
-              headlineFontSize={headlineFontSize}
-              subheadlineFontSize={subheadlineFontSize}
-              onUpdateDevice={(updates) =>
-                updateActiveScreenshot({
-                  devices: activeScreenshot.devices.map((device) =>
-                    device.id === activeDevice.id ? { ...device, ...updates } : device,
-                  ),
-                })
-              }
-              onUpdateScreenshot={updateActiveScreenshot}
-              onHeadlineSizeChange={setHeadlineFontSize}
-              onSubheadlineSizeChange={setSubheadlineFontSize}
+              onAddDevice={addDevice}
+              onSelectDevice={selectDevice}
+              onRemoveDevice={removeDevice}
+              onBringForward={bringDeviceForward}
+              onSendBackward={sendDeviceBackward}
             />
+
+            {activeDevice ? (
+              <>
+                <ScreenshotImageSection
+                  device={activeDevice}
+                  fileInputRef={fileInputRef}
+                  onFileUpload={handleFileUpload}
+                  onUpdateDevice={updateActiveDevice}
+                />
+
+                <StatusBarSection
+                  device={activeDevice}
+                  onUpdateDevice={updateActiveDevice}
+                />
+
+                <PositionPresets
+                  device={activeDevice}
+                  onUpdateDevice={updateActiveDevice}
+                />
+
+                <LayoutSection
+                  device={activeDevice}
+                  screenshot={activeScreenshot}
+                  headlineFontSize={headlineFontSize}
+                  subheadlineFontSize={subheadlineFontSize}
+                  onUpdateDevice={updateActiveDevice}
+                  onUpdateScreenshot={updateActiveScreenshot}
+                  onHeadlineSizeChange={setHeadlineFontSize}
+                  onSubheadlineSizeChange={setSubheadlineFontSize}
+                />
+              </>
+            ) : null}
           </>
-        ) : null}
+        )}
 
-        <ContentSection
-          screenshot={activeScreenshot}
-          onUpdateScreenshot={updateActiveScreenshot}
-        />
+        {activeTab === "text" && (
+          <ContentSection
+            screenshot={activeScreenshot}
+            onUpdateScreenshot={updateActiveScreenshot}
+          />
+        )}
 
-        <AppearanceSection
-          screenshot={activeScreenshot}
-          gradientPresets={gradientPresets}
-          solidColorPresets={solidColorPresets}
-          onUpdateScreenshot={updateActiveScreenshot}
-          onOpenFontPicker={() => setIsFontPickerOpen(true)}
-        />
+        {activeTab === "style" && (
+          <AppearanceSection
+            screenshot={activeScreenshot}
+            gradientPresets={gradientPresets}
+            userGradientPresets={customGradientPresets}
+            solidColorPresets={solidColorPresets}
+            onUpdateScreenshot={updateActiveScreenshot}
+            onSaveGradientPreset={saveCustomGradientPreset}
+            onOpenFontPicker={() => setIsFontPickerOpen(true)}
+          />
+        )}
 
-        <OverlayImagesSection
-          screenshot={activeScreenshot}
-          selectedElement={selectedElement}
-          overlayImageInputRef={overlayImageInputRef}
-          onSelectElement={setSelectedElement}
-          onAddImage={addOverlayImage}
-          onAddImages={addOverlayImages}
-          onRemoveImage={removeOverlayImage}
-          onUpdateSize={updateOverlayImageSize}
-          onUpdateLayer={updateOverlayImageLayer}
-          onUpdateRotation={updateOverlayImageRotation}
-          onUpdateShadow={updateOverlayImageShadow}
-          onBringForward={bringImageForward}
-          onSendBackward={sendImageBackward}
-        />
+        {activeTab === "layers" && (
+          <>
+            <input
+              ref={overlayImageInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(event) => {
+                const files = event.target.files;
+                if (!files || files.length === 0) return;
+                if (files.length === 1) {
+                  addOverlayImage(files[0]);
+                } else {
+                  addOverlayImages(Array.from(files));
+                }
+                event.target.value = "";
+              }}
+            />
+            <LayersTabPanel />
+          </>
+        )}
       </div>
     </aside>
   );

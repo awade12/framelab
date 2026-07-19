@@ -1,54 +1,48 @@
-/**
- * LeftSidebar Constants
- *
- * Style constants used across LeftSidebar components.
- */
-
-/**
- * CSS classes for consistent styling
- */
 export const STYLES = {
-  /** Sidebar container */
-  sidebar: "shrink-0 border-r border-white/10 bg-[#141414] flex flex-col",
+  sidebar: "flex h-full w-72 min-w-72 shrink-0 flex-col border-r border-white/10 bg-[#141414]",
 
-  /** Header section */
-  header: "p-4 border-b border-white/10",
+  header: "shrink-0 px-4 pb-3 pt-4",
 
-  /** Content area */
-  content: "flex-1 overflow-y-auto p-4 space-y-4",
+  scroll: "flex-1 overflow-y-auto",
 
-  /** Section container */
-  section: "rounded-lg bg-[#1e1e1e] p-3",
+  block: "px-4 py-4",
 
-  /** Section title */
-  sectionTitle:
-    "text-xs font-medium text-gray-300 uppercase tracking-wider mb-3",
+  divider: "border-t border-white/[0.06]",
 
-  /** Button list container */
-  buttonList: "space-y-2",
+  label: "mb-2.5 text-[11px] font-medium text-zinc-500",
 
-  /** Selection button base */
-  selectionButton: "w-full rounded-md px-3 py-2 text-left text-sm transition-colors",
+  labelRow: "mb-2.5 flex items-baseline justify-between gap-2",
 
-  /** Selection button active state */
-  selectionButtonActive: "bg-white text-black",
+  meta: "text-[11px] tabular-nums text-zinc-600",
 
-  /** Selection button inactive state */
-  selectionButtonInactive: "bg-[#2a2a2a] text-gray-300 hover:bg-[#333]",
+  select:
+    "w-full appearance-none rounded-md bg-white/[0.04] px-3 py-2.5 pr-9 text-[13px] text-zinc-200 outline-none ring-1 ring-white/[0.08] transition-shadow focus:ring-white/20",
 
-  /** Color picker container */
-  colorPicker: "flex flex-wrap gap-2",
-
-  /** Color button base */
-  colorButton: "w-7 h-7 rounded-full border-2 transition-all",
-
-  /** Color button active state */
-  colorButtonActive: "border-white scale-110",
-
-  /** Color button inactive state */
-  colorButtonInactive: "border-transparent",
-
-  /** Primary action button */
   primaryButton:
-    "w-full mt-3 bg-white hover:bg-neutral-200 text-black font-medium py-2.5 rounded-lg transition-colors",
+    "w-full rounded-md bg-white py-2.5 text-[13px] font-medium text-black transition-colors hover:bg-neutral-200 disabled:cursor-not-allowed disabled:opacity-60",
+
+  ghostLink:
+    "text-[12px] text-zinc-500 transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-30",
+
+  iconButton:
+    "rounded-md p-1.5 text-zinc-500 transition-colors hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-30",
+
+  footer: "shrink-0 border-t border-white/[0.06] px-4 py-4",
+
+  segmentTrack: "flex rounded-md bg-white/[0.04] p-0.5 ring-1 ring-white/[0.06]",
+
+  segmentButton:
+    "flex-1 rounded px-2 py-1.5 text-[11px] transition-colors disabled:cursor-not-allowed disabled:opacity-30",
+
+  segmentActive: "bg-white/10 text-white",
+
+  segmentInactive: "text-zinc-500 hover:text-zinc-300",
+
+  colorPicker: "flex gap-2",
+
+  colorButton: "h-7 w-7 rounded-full border-2 transition-transform",
+
+  colorButtonActive: "scale-105 border-white",
+
+  colorButtonInactive: "border-transparent hover:scale-105",
 } as const;

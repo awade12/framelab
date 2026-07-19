@@ -8,11 +8,20 @@
  * CSS classes for consistent styling
  */
 export const STYLES = {
-  /** Sidebar container */
-  sidebar: "w-96 shrink-0 border-l border-white/10 bg-[#141414] overflow-y-auto",
+  sidebar:
+    "flex h-full w-96 shrink-0 flex-col border-l border-white/10 bg-[#141414] overflow-hidden",
 
-  /** Content wrapper */
-  content: "p-4 space-y-6",
+  tabBar: "shrink-0 px-4 pb-3 pt-4",
+
+  tabList: "flex rounded-md bg-white/[0.04] p-0.5 ring-1 ring-white/[0.06]",
+
+  tab: "flex-1 rounded px-2 py-1.5 text-[11px] font-medium transition-colors",
+
+  tabActive: "bg-white/10 text-white",
+
+  tabInactive: "text-zinc-500 hover:text-zinc-300",
+
+  content: "flex-1 space-y-4 overflow-y-auto p-4",
 
   /** Section container */
   section: "rounded-lg bg-[#1e1e1e] p-3",

@@ -1,11 +1,15 @@
 import type { Screenshot, GradientPreset, SolidColorPreset } from "../../types";
+import { buildGradientCss } from "../../lib/gradient-utils";
+import { CustomGradientEditor } from "./CustomGradientEditor";
 import { STYLES } from "./constants";
 
 interface BackgroundPickerProps {
   screenshot: Screenshot;
   gradientPresets: GradientPreset[];
+  userGradientPresets: GradientPreset[];
   solidColorPresets: SolidColorPreset[];
   onUpdateScreenshot: (updates: Partial<Screenshot>) => void;
+  onSaveGradientPreset: (preset: GradientPreset) => void;
 }
 
 const normalizeHex = (color: string) => color.trim().toLowerCase();
@@ -13,13 +17,17 @@ const normalizeHex = (color: string) => color.trim().toLowerCase();
 export const BackgroundPicker = ({
   screenshot,
   gradientPresets,
+  userGradientPresets,
   solidColorPresets,
   onUpdateScreenshot,
+  onSaveGradientPreset,
 }: BackgroundPickerProps) => {
   const currentColor = normalizeHex(screenshot.backgroundColor);
   const hasPresetMatch = solidColorPresets.some(
     (preset) => normalizeHex(preset.color) === currentColor,
   );
+  const allGradientPresets = [...gradientPresets, ...userGradientPresets];
+  const isCustomGradient = screenshot.gradientPresetId === "custom";
 
   return (
     <div>
@@ -97,23 +105,65 @@ export const BackgroundPicker = ({
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-3 gap-1">
-            {gradientPresets.map((preset) => (
+          <div className="space-y-2">
+            <div className="grid grid-cols-3 gap-1">
+              {allGradientPresets.map((preset) => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  title={preset.label}
+                  onClick={() =>
+                    onUpdateScreenshot({
+                      gradientPresetId: preset.id,
+                      customGradient: null,
+                    })
+                  }
+                  className={`${STYLES.gradientButton} ${
+                    screenshot.gradientPresetId === preset.id &&
+                    !isCustomGradient
+                      ? STYLES.gradientButtonActive
+                      : ""
+                  }`}
+                  style={{
+                    background: buildGradientCss(
+                      preset.from,
+                      preset.to,
+                      preset.angle ?? 180,
+                    ),
+                  }}
+                />
+              ))}
               <button
-                key={preset.id}
                 type="button"
-                title={preset.label}
-                onClick={() => onUpdateScreenshot({ gradientPresetId: preset.id })}
-                className={`${STYLES.gradientButton} ${
-                  screenshot.gradientPresetId === preset.id
-                    ? STYLES.gradientButtonActive
-                    : ""
+                title="Custom gradient"
+                onClick={() =>
+                  onUpdateScreenshot({
+                    gradientPresetId: "custom",
+                    customGradient: screenshot.customGradient ?? {
+                      from: "#8b5cf6",
+                      to: "#ec4899",
+                      angle: 160,
+                    },
+                  })
+                }
+                className={`${STYLES.gradientButton} flex items-center justify-center text-[10px] text-zinc-400 ${
+                  isCustomGradient ? STYLES.gradientButtonActive : ""
                 }`}
-                style={{
-                  background: `linear-gradient(135deg, ${preset.from}, ${preset.to})`,
-                }}
+              >
+                Custom
+              </button>
+            </div>
+
+            {isCustomGradient && screenshot.customGradient && (
+              <CustomGradientEditor
+                gradient={screenshot.customGradient}
+                userPresets={userGradientPresets}
+                onChange={(gradient) =>
+                  onUpdateScreenshot({ customGradient: gradient })
+                }
+                onSavePreset={onSaveGradientPreset}
               />
-            ))}
+            )}
           </div>
         )}
       </div>

@@ -1,10 +1,4 @@
-/**
- * DeviceContainer Component
- *
- * Wrapper for the device frame with positioning, rotation, and shadow effects.
- * Supports both flat (2D) and 3D device rendering styles.
- */
-
+import { useState } from "react";
 import type { DeviceInstance } from "../../types";
 import { SelectionHandles } from "./SelectionHandles";
 import { DeviceFrame } from "../DeviceFrame";
@@ -12,28 +6,18 @@ import { DeviceFrame3D } from "../DeviceFrame/DeviceFrame3D";
 import { FramelessScreen } from "../DeviceFrame/FramelessScreen";
 import { getDeviceSelectionStyles, getDropShadowFilter } from "./utils";
 import { getDeviceColorById, getDeviceSpecById } from "../../lib/device-instances";
+import { hasImageDrag } from "../../lib/overlay-images";
 
 interface DeviceContainerProps {
-  /** Device instance data containing render settings */
   device: DeviceInstance;
-  /** Horizontal position override in screenshot-local percent */
   renderX?: number;
-  /** Z-index for stacking order */
   zIndex: number;
-  /** Whether this device is selected */
   isSelected: boolean;
-  /** Whether mouse interactions are enabled */
   isInteractive: boolean;
-  /** Handler for mouse down event */
   onMouseDown: (e: React.MouseEvent) => void;
+  onDropImage?: (file: File) => void;
 }
 
-/**
- * DeviceContainer - Positioned device frame wrapper
- *
- * Handles device positioning, scale, rotation/3D perspective, and shadow effects.
- * Renders either a flat DeviceFrame or a 3D DeviceFrame3D based on the device instance style.
- */
 export const DeviceContainer = ({
   device,
   renderX = device.x,
@@ -41,7 +25,9 @@ export const DeviceContainer = ({
   isSelected,
   isInteractive,
   onMouseDown,
+  onDropImage,
 }: DeviceContainerProps) => {
+  const [isDropOver, setIsDropOver] = useState(false);
   const is3D = device.style === "3d";
   const showFrame = device.showFrame !== false;
   const selectedDevice = getDeviceSpecById(device.deviceId);
@@ -63,6 +49,23 @@ export const DeviceContainer = ({
     />
   );
 
+  const handleDragOver = (event: React.DragEvent) => {
+    if (!onDropImage || !hasImageDrag(event)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.dataTransfer.dropEffect = "copy";
+    setIsDropOver(true);
+  };
+
+  const handleDrop = (event: React.DragEvent) => {
+    if (!onDropImage || !hasImageDrag(event)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDropOver(false);
+    const file = event.dataTransfer.files[0];
+    if (file) onDropImage(file);
+  };
+
   return (
     <div
       data-draggable-element="device"
@@ -78,6 +81,13 @@ export const DeviceContainer = ({
       }}
       onMouseDown={isInteractive ? onMouseDown : undefined}
       onClick={(e) => e.stopPropagation()}
+      onDragEnter={handleDragOver}
+      onDragOver={handleDragOver}
+      onDragLeave={(event) => {
+        if (event.currentTarget.contains(event.relatedTarget as Node)) return;
+        setIsDropOver(false);
+      }}
+      onDrop={handleDrop}
     >
       <div
         className="relative"
@@ -97,6 +107,13 @@ export const DeviceContainer = ({
         }
       >
         {frameContent}
+        {isDropOver && (
+          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-violet-500/25 ring-2 ring-violet-400/60">
+            <span className="rounded bg-black/70 px-2 py-1 text-[10px] text-white">
+              Set screen image
+            </span>
+          </div>
+        )}
         {isSelected && <SelectionHandles />}
       </div>
     </div>

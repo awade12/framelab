@@ -5,9 +5,15 @@
  */
 
 import type { DeviceInstance, Screenshot, ShadowConfig } from "../../types";
+import {
+  snapFlatRotation,
+  snapRotateX,
+  snapRotateY,
+} from "../../lib/alignment-actions";
 import { SidebarSection } from "./SidebarSection";
 import { RangeSlider } from "./RangeSlider";
 import { ShadowControls } from "./ShadowControls";
+import { AlignControls } from "./AlignControls";
 import { SLIDER_RANGES, STYLES } from "./constants";
 
 interface LayoutSectionProps {
@@ -57,6 +63,8 @@ export const LayoutSection = ({
   return (
     <SidebarSection title="Layout">
       <div className="space-y-3">
+        <AlignControls />
+
         {/* Device Style Toggle */}
         <div>
           <label className="block text-xs text-gray-400 mb-2">
@@ -127,7 +135,7 @@ export const LayoutSection = ({
               min={SLIDER_RANGES.device3dRotateY.min}
               max={SLIDER_RANGES.device3dRotateY.max}
               unit="°"
-              onChange={(v) => onUpdateDevice({ rotateY: v })}
+              onChange={(v) => onUpdateDevice({ rotateY: snapRotateY(v) })}
             />
             <RangeSlider
               label="3D Rotate X"
@@ -135,7 +143,7 @@ export const LayoutSection = ({
               min={SLIDER_RANGES.device3dRotateX.min}
               max={SLIDER_RANGES.device3dRotateX.max}
               unit="°"
-              onChange={(v) => onUpdateDevice({ rotateX: v })}
+              onChange={(v) => onUpdateDevice({ rotateX: snapRotateX(v) })}
             />
           </>
         ) : (
@@ -145,7 +153,7 @@ export const LayoutSection = ({
             min={SLIDER_RANGES.deviceRotation.min}
             max={SLIDER_RANGES.deviceRotation.max}
             unit="°"
-            onChange={(v) => onUpdateDevice({ rotation: v })}
+            onChange={(v) => onUpdateDevice({ rotation: snapFlatRotation(v) })}
           />
         )}
 

@@ -3,6 +3,7 @@ import { RightSidebar } from "./RightSidebar";
 import { CanvasPreview } from "./CanvasPreview";
 import { FontPicker } from "./FontPicker";
 import { GitHubStarModal } from "./GitHubStarModal";
+import { ShortcutsModal } from "./ShortcutsModal";
 import { TemplatesModal } from "./TemplatesModal";
 import { ExportProgressModal } from "./ExportProgressModal";
 import { useEditor } from "../context/EditorContext";
@@ -15,6 +16,8 @@ export const EditorLayout = () => {
     setIsStarModalOpen,
     isTemplatesOpen,
     setIsTemplatesOpen,
+    isShortcutsOpen,
+    setIsShortcutsOpen,
     applyTemplate,
     activeScreenshot,
     updateActiveScreenshot,
@@ -39,6 +42,10 @@ export const EditorLayout = () => {
           isOpen={isTemplatesOpen}
           onClose={() => setIsTemplatesOpen(false)}
           onApply={applyTemplate}
+        />
+        <ShortcutsModal
+          isOpen={isShortcutsOpen}
+          onClose={() => setIsShortcutsOpen(false)}
         />
         <GitHubStarModal
           isOpen={isStarModalOpen}

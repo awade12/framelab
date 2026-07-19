@@ -3,6 +3,7 @@ import type { Screenshot, ShadowConfig } from "../../types";
 import { SidebarSection } from "./SidebarSection";
 import { OverlayImageItem } from "./OverlayImageItem";
 import { OverlayImageProperties } from "./OverlayImageProperties";
+import { AlignControls } from "./AlignControls";
 import { STYLES } from "./constants";
 import type { SelectedElement } from "./types";
 
@@ -105,7 +106,9 @@ export const OverlayImagesSection = ({
             ))}
 
             {selectedImage && (
-              <OverlayImageProperties
+              <>
+                <AlignControls />
+                <OverlayImageProperties
                 image={selectedImage}
                 onSizeChange={(size) => onUpdateSize(selectedImage.id, size)}
                 onRotationChange={(rotation) =>
@@ -128,7 +131,8 @@ export const OverlayImagesSection = ({
                 onShadowOffsetYChange={(offsetY) =>
                   onUpdateShadow(selectedImage.id, { offsetY })
                 }
-              />
+                />
+              </>
             )}
           </div>
         )}

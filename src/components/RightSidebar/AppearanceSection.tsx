@@ -11,15 +11,12 @@ import { BackgroundPicker } from "./BackgroundPicker";
 import { STYLES } from "./constants";
 
 interface AppearanceSectionProps {
-  /** Active screenshot data */
   screenshot: Screenshot;
-  /** Available gradient presets */
   gradientPresets: GradientPreset[];
-  /** Available solid color presets */
+  userGradientPresets: GradientPreset[];
   solidColorPresets: SolidColorPreset[];
-  /** Update screenshot handler */
   onUpdateScreenshot: (updates: Partial<Screenshot>) => void;
-  /** Open font picker handler */
+  onSaveGradientPreset: (preset: GradientPreset) => void;
   onOpenFontPicker: () => void;
 }
 
@@ -33,18 +30,21 @@ interface AppearanceSectionProps {
 export const AppearanceSection = ({
   screenshot,
   gradientPresets,
+  userGradientPresets,
   solidColorPresets,
   onUpdateScreenshot,
+  onSaveGradientPreset,
   onOpenFontPicker,
 }: AppearanceSectionProps) => (
   <SidebarSection title="Appearance">
     <div className="space-y-4">
-      {/* Background */}
       <BackgroundPicker
         screenshot={screenshot}
         gradientPresets={gradientPresets}
+        userGradientPresets={userGradientPresets}
         solidColorPresets={solidColorPresets}
         onUpdateScreenshot={onUpdateScreenshot}
+        onSaveGradientPreset={onSaveGradientPreset}
       />
 
       {/* Text Color */}

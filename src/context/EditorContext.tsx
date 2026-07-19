@@ -18,8 +18,11 @@ import type {
   ShadowConfig,
   Project,
   SelectedElement,
+  ExportScope,
+  CanvasZoom,
+  GradientPreset,
 } from "../types";
-import { devices, exportSizes, gradientPresets, exportQualityOptions } from "../constants";
+import { devices, exportSizes, exportQualityOptions } from "../constants";
 import {
   getExportSizeById,
   getOutputDimensions,
@@ -30,6 +33,21 @@ import {
   downloadExportFiles,
   renderExportFiles,
 } from "../lib/export-utils";
+import {
+  downloadProjectFile,
+  getProjectFileName,
+  packProjectForExport,
+  readProjectFromFile,
+  sanitizeProjectFilename,
+} from "../lib/project-file";
+import { getScreenshotBackgroundStyle } from "../lib/gradient-utils";
+import {
+  getExportScreenshots,
+  isSelectedElementLocked,
+  toggleLayerLock,
+  toggleLayerVisibility,
+} from "../lib/layer-state";
+import type { LayerEntry } from "../lib/layer-stack";
 import {
   createInitialExportProgress,
   runPostRenderPhases,
@@ -48,6 +66,32 @@ import {
   screenshotTemplates,
   type ScreenshotTemplate,
 } from "../lib/templates";
+import {
+  collectAlignmentTargets,
+  getSnapThresholdPercent,
+  snapDragPosition,
+  type SnapGuide,
+} from "../lib/alignment-snapping";
+import {
+  applySnapPreset,
+  distributeScreenshotElements,
+  getAlignUpdates,
+  getRotationStepUpdate,
+  snapAngle,
+  type AlignMode,
+  type DistributeMode,
+  type SnapPreset,
+  OVERLAY_ROTATION_SNAP,
+} from "../lib/alignment-actions";
+import {
+  loadGuideSettings,
+  saveGuideSettings,
+  type GuideSettings,
+} from "../lib/guide-settings";
+import {
+  reorderLayerStack,
+  setOverlayLayer,
+} from "../lib/layer-stack";
 import {
   createOverlayFromImage,
   filterImageFiles,
@@ -95,6 +139,7 @@ interface EditorContextType {
   selectedElement: SelectedElement | null;
   setSelectedElement: (element: SelectedElement | null) => void;
   isDragging: boolean;
+  snapGuides: SnapGuide[];
   headlineFontSize: number;
   setHeadlineFontSize: (size: number) => void;
   subheadlineFontSize: number;
@@ -111,6 +156,27 @@ interface EditorContextType {
   templates: ScreenshotTemplate[];
   isTemplatesOpen: boolean;
   setIsTemplatesOpen: (open: boolean) => void;
+  isShortcutsOpen: boolean;
+  setIsShortcutsOpen: (open: boolean) => void;
+  guideSettings: GuideSettings;
+  setGuideSettings: (settings: GuideSettings) => void;
+  toggleGuideSetting: (key: keyof GuideSettings) => void;
+  exportScope: ExportScope;
+  setExportScope: (scope: ExportScope) => void;
+  canvasZoom: CanvasZoom;
+  setCanvasZoom: (zoom: CanvasZoom) => void;
+  customGradientPresets: GradientPreset[];
+  saveCustomGradientPreset: (preset: GradientPreset) => void;
+  updateScreenshotLabel: (screenshotId: string, label: string) => void;
+  toggleScreenshotExport: (screenshotId: string) => void;
+  navigateScreenshot: (direction: "prev" | "next" | number) => void;
+  toggleLayerHidden: (entry: LayerEntry) => void;
+  toggleLayerLocked: (entry: LayerEntry) => void;
+  assignDeviceScreenshot: (
+    screenshotId: string,
+    deviceId: string,
+    src: string,
+  ) => void;
 
   // Refs
   previewRef: React.RefObject<HTMLDivElement | null>;
@@ -149,6 +215,13 @@ interface EditorContextType {
   updateOverlayImageSize: (imageId: string, widthPercent: number) => void;
   updateOverlayImageLayer: (imageId: string, layer: "behind" | "front") => void;
   updateOverlayImageRotation: (imageId: string, rotation: number) => void;
+  alignSelected: (mode: AlignMode) => void;
+  distributeElements: (mode: DistributeMode) => void;
+  applySnapPresetToActive: (preset: SnapPreset) => void;
+  reorderScreenshots: (fromIndex: number, toIndex: number) => void;
+  reorderLayers: (fromIndex: number, toIndex: number) => void;
+  toggleOverlayLayer: (imageId: string) => void;
+  saveProjectFile: () => Promise<void>;
   updateOverlayImageShadow: (
     imageId: string,
     shadow: Partial<ShadowConfig>,
@@ -164,6 +237,7 @@ interface EditorContextType {
   sendImageToBack: (imageId: string) => void;
   handleFileUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
   handleExport: () => void;
+  importProjectFile: (file: File) => Promise<void>;
   getBackgroundStyle: (screenshot: Screenshot) => string;
   resetEditor: () => void;
 }
@@ -351,6 +425,16 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
     activeProject.subheadlineFontSize,
   );
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
+  const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
+  const [guideSettings, setGuideSettingsState] = useState(loadGuideSettings);
+  const [exportScope, setExportScopeState] = useState<ExportScope>("all");
+  const [canvasZoom, setCanvasZoomState] = useState<CanvasZoom>(1);
+  const setExportScope = useCallback((scope: ExportScope) => {
+    setExportScopeState(scope);
+  }, []);
+  const setCanvasZoom = useCallback((zoom: CanvasZoom) => {
+    setCanvasZoomState(zoom);
+  }, []);
 
   const [selectedElement, setSelectedElement] = useState<SelectedElement | null>(
     null,
@@ -365,6 +449,7 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
   const dragSnapshotPushed = useRef(false);
 
   const [isDragging, setIsDragging] = useState(false);
+  const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([]);
   const dragStartPos = useRef({ x: 0, y: 0 });
   const dragStartElementPos = useRef({ x: 0, y: 0 });
   const dragContainerSize = useRef({ width: 0, height: 0 });
@@ -575,6 +660,121 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
     setHistoryTick((tick) => tick + 1);
   };
 
+  const loadProjectIntoEditor = useCallback((project: Project) => {
+    setActiveProjectId(project.id);
+    setSelectedDeviceIdState(project.selectedDeviceId);
+    setSelectedColorIdState(project.selectedColorId);
+    setExportSizeIdState(project.exportSizeId);
+    setExportQualityState(project.exportQuality ?? 2);
+    setScreenshotsState(project.screenshots);
+    setActiveScreenshotIdState(project.activeScreenshotId);
+    setHeadlineFontSizeState(project.headlineFontSize);
+    setSubheadlineFontSizeState(project.subheadlineFontSize);
+    setSelectedElement(null);
+    historyRef.current = { past: [], future: [] };
+    setHistoryTick((tick) => tick + 1);
+  }, []);
+
+  const setGuideSettings = useCallback((settings: GuideSettings) => {
+    setGuideSettingsState(settings);
+    saveGuideSettings(settings);
+  }, []);
+
+  const toggleGuideSetting = useCallback((key: keyof GuideSettings) => {
+    setGuideSettingsState((prev) => {
+      const next = { ...prev, [key]: !prev[key] };
+      saveGuideSettings(next);
+      return next;
+    });
+  }, []);
+
+  const importProjectFile = useCallback(async (file: File) => {
+    const imported = normalizeProject(await readProjectFromFile(file));
+    const importedProject: Project = {
+      ...imported,
+      id: generateId(),
+      updatedAt: Date.now(),
+    };
+
+    setProjects((prev) => [...prev, importedProject]);
+    loadProjectIntoEditor(importedProject);
+  }, [loadProjectIntoEditor]);
+
+  const customGradientPresets = activeProject.customGradientPresets ?? [];
+
+  const saveProjectFile = useCallback(async () => {
+    await downloadProjectFile({
+      ...activeProject,
+      screenshots,
+      selectedDeviceId,
+      selectedColorId,
+      exportSizeId,
+      exportQuality,
+      activeScreenshotId,
+      headlineFontSize,
+      subheadlineFontSize,
+      customGradientPresets,
+      updatedAt: Date.now(),
+    });
+  }, [
+    activeProject,
+    activeScreenshotId,
+    customGradientPresets,
+    exportQuality,
+    exportSizeId,
+    headlineFontSize,
+    screenshots,
+    selectedColorId,
+    selectedDeviceId,
+    subheadlineFontSize,
+  ]);
+
+  const saveCustomGradientPreset = useCallback(
+    (preset: GradientPreset) => {
+      setProjects((prev) =>
+        prev.map((project) =>
+          project.id === activeProjectId
+            ? {
+                ...project,
+                customGradientPresets: [
+                  ...(project.customGradientPresets ?? []),
+                  preset,
+                ],
+                updatedAt: Date.now(),
+              }
+            : project,
+        ),
+      );
+    },
+    [activeProjectId],
+  );
+
+  const navigateScreenshot = useCallback(
+    (direction: "prev" | "next" | number) => {
+      const index = screenshots.findIndex(
+        (item) => item.id === activeScreenshotId,
+      );
+      if (index === -1) return;
+
+      if (typeof direction === "number") {
+        const target = screenshots[direction];
+        if (target) {
+          setActiveScreenshotIdState(target.id);
+          setSelectedElement(null);
+        }
+        return;
+      }
+
+      const nextIndex =
+        direction === "next"
+          ? Math.min(screenshots.length - 1, index + 1)
+          : Math.max(0, index - 1);
+      setActiveScreenshotIdState(screenshots[nextIndex].id);
+      setSelectedElement(null);
+    },
+    [activeScreenshotId, screenshots],
+  );
+
   const selectedDevice =
     getDeviceSpecById(selectedDeviceId);
   const selectedColor =
@@ -607,6 +807,56 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
       updateScreenshotById(activeScreenshotId, updates, options);
     },
     [activeScreenshotId, updateScreenshotById],
+  );
+
+  const updateScreenshotLabel = useCallback(
+    (screenshotId: string, label: string) => {
+      updateScreenshotById(screenshotId, { label: label.trim() || undefined });
+    },
+    [updateScreenshotById],
+  );
+
+  const toggleScreenshotExport = useCallback(
+    (screenshotId: string) => {
+      const target = screenshots.find((item) => item.id === screenshotId);
+      if (!target) return;
+      updateScreenshotById(screenshotId, {
+        includeInExport: target.includeInExport === false,
+      });
+    },
+    [screenshots, updateScreenshotById],
+  );
+
+  const toggleLayerHidden = useCallback(
+    (entry: LayerEntry) => {
+      const updates = toggleLayerVisibility(activeScreenshot, entry);
+      updateActiveScreenshot(updates);
+    },
+    [activeScreenshot, updateActiveScreenshot],
+  );
+
+  const toggleLayerLocked = useCallback(
+    (entry: LayerEntry) => {
+      const updates = toggleLayerLock(activeScreenshot, entry);
+      updateActiveScreenshot(updates);
+    },
+    [activeScreenshot, updateActiveScreenshot],
+  );
+
+  const assignDeviceScreenshot = useCallback(
+    (screenshotId: string, deviceId: string, src: string) => {
+      const target =
+        screenshots.find((item) => item.id === screenshotId) ?? activeScreenshot;
+      updateScreenshotById(screenshotId, {
+        devices: target.devices.map((device) =>
+          device.id === deviceId ? { ...device, screenshotSrc: src } : device,
+        ),
+        activeDeviceId: deviceId,
+      });
+      setActiveScreenshotIdState(screenshotId);
+      setSelectedElement({ type: "device", id: deviceId, screenshotId });
+    },
+    [activeScreenshot, screenshots, updateScreenshotById],
   );
 
   const undo = useCallback(() => {
@@ -752,7 +1002,17 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
       screenshots.find((screenshot) => screenshot.id === screenshotId) ??
       activeScreenshot;
 
+    const nextSelection: SelectedElement = { type, id, screenshotId };
+    if (isSelectedElementLocked(targetScreenshot, nextSelection)) {
+      setSelectedElement(nextSelection);
+      if (activeScreenshotId !== screenshotId) {
+        setActiveScreenshotIdState(screenshotId);
+      }
+      return;
+    }
+
     setIsDragging(true);
+    setSnapGuides([]);
     dragSnapshotPushed.current = false;
     setSelectedElement({ type, id, screenshotId });
     if (activeScreenshotId !== screenshotId) {
@@ -860,20 +1120,39 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
       const deltaX = ((e.clientX - dragStartPos.current.x) / width) * 100;
       const deltaY = ((e.clientY - dragStartPos.current.y) / height) * 100;
 
-      const newX = dragStartElementPos.current.x + deltaX;
-      const newY = dragStartElementPos.current.y + deltaY;
+      const rawX = dragStartElementPos.current.x + deltaX;
+      const rawY = dragStartElementPos.current.y + deltaY;
 
+      const targetScreenshot =
+        screenshots.find(
+          (screenshot) => screenshot.id === selectedElement.screenshotId,
+        ) ?? activeScreenshot;
+
+      const thresholds = getSnapThresholdPercent(width, height);
+      const threshold = Math.max(thresholds.x, thresholds.y);
+      const { x: newX, y: newY, guides } = snapDragPosition(
+        rawX,
+        rawY,
+        collectAlignmentTargets(targetScreenshot, {
+          type: selectedElement.type,
+          id: selectedElement.id,
+        }),
+        threshold,
+      );
+
+      setSnapGuides(guides);
       pendingUpdate.current = { x: newX, y: newY };
 
       if (rafId.current === null) {
         rafId.current = requestAnimationFrame(applyDragUpdate);
       }
     },
-    [isDragging, selectedElement, applyDragUpdate],
+    [activeScreenshot, applyDragUpdate, isDragging, screenshots, selectedElement],
   );
 
   const handleElementMouseUp = useCallback(() => {
     setIsDragging(false);
+    setSnapGuides([]);
     if (rafId.current !== null) {
       cancelAnimationFrame(rafId.current);
       rafId.current = null;
@@ -1006,11 +1285,113 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const updateOverlayImageRotation = (imageId: string, rotation: number) => {
+    const snapped = snapAngle(rotation, OVERLAY_ROTATION_SNAP);
     const updatedImages = activeScreenshot.overlayImages.map((item) =>
-      item.id === imageId ? { ...item, rotation } : item,
+      item.id === imageId ? { ...item, rotation: snapped } : item,
     );
     updateActiveScreenshot({ overlayImages: updatedImages });
   };
+
+  const alignSelected = useCallback(
+    (mode: AlignMode) => {
+      if (!selectedElement) return;
+
+      const targetScreenshot =
+        screenshots.find(
+          (screenshot) => screenshot.id === selectedElement.screenshotId,
+        ) ?? activeScreenshot;
+
+      const updates = getAlignUpdates(
+        selectedElement,
+        targetScreenshot,
+        mode,
+        exportSize,
+        getDeviceSpecById,
+      );
+
+      if (updates) {
+        updateScreenshotById(selectedElement.screenshotId, updates);
+      }
+    },
+    [
+      activeScreenshot,
+      exportSize,
+      screenshots,
+      selectedElement,
+      updateScreenshotById,
+    ],
+  );
+
+  const distributeElements = useCallback(
+    (mode: DistributeMode) => {
+      const updates = distributeScreenshotElements(activeScreenshot, mode);
+      if (updates) {
+        updateActiveScreenshot(updates);
+      }
+    },
+    [activeScreenshot, updateActiveScreenshot],
+  );
+
+  const applySnapPresetToActive = useCallback(
+    (preset: SnapPreset) => {
+      const updates = applySnapPreset(
+        activeScreenshot,
+        preset,
+        exportSize,
+        getDeviceSpecById,
+      );
+      if (updates) {
+        updateActiveScreenshot(updates);
+      }
+    },
+    [activeScreenshot, exportSize, updateActiveScreenshot],
+  );
+
+  const reorderScreenshots = useCallback(
+    (fromIndex: number, toIndex: number) => {
+      if (
+        fromIndex === toIndex ||
+        fromIndex < 0 ||
+        toIndex < 0 ||
+        fromIndex >= screenshots.length ||
+        toIndex >= screenshots.length
+      ) {
+        return;
+      }
+      commitScreenshots((prev) => {
+        const next = [...prev];
+        const [moved] = next.splice(fromIndex, 1);
+        next.splice(toIndex, 0, moved);
+        return next;
+      });
+    },
+    [commitScreenshots, screenshots.length],
+  );
+
+  const reorderLayers = useCallback(
+    (fromIndex: number, toIndex: number) => {
+      const updates = reorderLayerStack(activeScreenshot, fromIndex, toIndex);
+      if (updates) {
+        updateActiveScreenshot(updates);
+      }
+    },
+    [activeScreenshot, updateActiveScreenshot],
+  );
+
+  const toggleOverlayLayer = useCallback(
+    (imageId: string) => {
+      const image = activeScreenshot.overlayImages.find(
+        (item) => item.id === imageId,
+      );
+      if (!image) return;
+      const nextLayer = image.layer === "behind" ? "front" : "behind";
+      const updates = setOverlayLayer(activeScreenshot, imageId, nextLayer);
+      if (Object.keys(updates).length > 0) {
+        updateActiveScreenshot(updates);
+      }
+    },
+    [activeScreenshot, updateActiveScreenshot],
+  );
 
   const updateOverlayImageShadow = (
     imageId: string,
@@ -1182,18 +1563,22 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
     event.target.value = "";
   };
 
-  const getBackgroundStyle = (screenshot: Screenshot) => {
-    if (screenshot.backgroundMode === "gradient") {
-      const preset =
-        gradientPresets.find((p) => p.id === screenshot.gradientPresetId) ??
-        gradientPresets[0];
-      return `linear-gradient(180deg, ${preset.from}, ${preset.to})`;
-    }
-    return screenshot.backgroundColor;
-  };
+  const getBackgroundStyle = (screenshot: Screenshot) =>
+    getScreenshotBackgroundStyle(screenshot, customGradientPresets);
 
   const handleExport = useCallback(async () => {
     if (isExporting) return;
+
+    const exportScreenshots = getExportScreenshots(
+      screenshots,
+      exportScope,
+      activeScreenshotId,
+    );
+
+    if (exportScreenshots.length === 0) {
+      window.alert("No screenshots selected for export.");
+      return;
+    }
 
     const outputWidth = getOutputDimensions(exportSize, exportQuality).width;
     const outputHeight = getOutputDimensions(exportSize, exportQuality).height;
@@ -1209,7 +1594,7 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
       phase: "Starting export",
       detail: "Spinning up the high-resolution render pipeline…",
       screenshotIndex: 0,
-      screenshotTotal: screenshots.length,
+      screenshotTotal: exportScreenshots.length,
       outputWidth,
       outputHeight,
       qualityLabel,
@@ -1218,12 +1603,13 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
 
     try {
       const files = await renderExportFiles({
-        screenshots,
+        screenshots: exportScreenshots,
         exportSize,
         exportQuality,
         previewDimensions,
         headlineFontSize,
         subheadlineFontSize,
+        customGradientPresets,
         onProgress: (update) => {
           setExportProgress((current) => ({
             ...current,
@@ -1233,7 +1619,7 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
             outputHeight,
             qualityLabel,
             exportLabel: exportSize.label,
-            screenshotTotal: screenshots.length,
+            screenshotTotal: exportScreenshots.length,
           }));
         },
       });
@@ -1248,8 +1634,8 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
 
       const packagingDetail =
         files.length > 1
-          ? `Bundling ${files.length} screenshots into appstore-screenshots.zip…`
-          : `Saving ${files[0]?.name ?? "screenshot"}…`;
+          ? `Bundling ${files.length} screenshots and ${getProjectFileName(activeProject.name)}…`
+          : `Saving screenshot and ${getProjectFileName(activeProject.name)}…`;
 
       setExportProgress((current) => ({
         ...current,
@@ -1258,14 +1644,35 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
         progress: 99,
       }));
 
-      await downloadExportFiles(files);
+      const packedProject = packProjectForExport({
+        ...activeProject,
+        screenshots,
+        selectedDeviceId,
+        selectedColorId,
+        exportSizeId,
+        exportQuality,
+        activeScreenshotId,
+        headlineFontSize,
+        subheadlineFontSize,
+        customGradientPresets,
+        updatedAt: Date.now(),
+      });
+
+      await downloadExportFiles(files, {
+        projectFile: {
+          name: getProjectFileName(activeProject.name),
+          content: packedProject.documentJson,
+          assets: packedProject.assets,
+        },
+        archiveName: `${sanitizeProjectFilename(activeProject.name)}-export.zip`,
+      });
 
       setExportProgress((current) => ({
         ...current,
         status: "complete",
         progress: 100,
         phase: "Export complete",
-        detail: `${files.length} screenshot${files.length === 1 ? "" : "s"} exported at ${outputWidth.toLocaleString()}×${outputHeight.toLocaleString()}.`,
+        detail: `${files.length} screenshot${files.length === 1 ? "" : "s"} exported with a .framelab project file.`,
       }));
 
       await new Promise<void>((resolve) => {
@@ -1288,13 +1695,19 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
       setExportProgress(createInitialExportProgress());
     }
   }, [
+    activeProject,
+    customGradientPresets,
     exportQuality,
+    exportScope,
     exportSize,
     headlineFontSize,
     isExporting,
     previewDimensions,
     screenshots,
+    selectedColorId,
+    selectedDeviceId,
     subheadlineFontSize,
+    activeScreenshotId,
   ]);
 
   const resetEditor = () => {
@@ -1316,6 +1729,8 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
     setHistoryTick((tick) => tick + 1);
   };
 
+  const snapGuideTimeoutRef = useRef<number | null>(null);
+
   useEffect(() => {
     const isEditableTarget = (target: EventTarget | null) => {
       if (!(target instanceof HTMLElement)) return false;
@@ -1324,6 +1739,36 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
         tag === "input" ||
         tag === "textarea" ||
         target.isContentEditable
+      );
+    };
+
+    const showSnapGuides = (guides: SnapGuide[]) => {
+      setSnapGuides(guides);
+      if (snapGuideTimeoutRef.current !== null) {
+        window.clearTimeout(snapGuideTimeoutRef.current);
+      }
+      snapGuideTimeoutRef.current = window.setTimeout(() => {
+        setSnapGuides([]);
+        snapGuideTimeoutRef.current = null;
+      }, 700);
+    };
+
+    const snapNudgePosition = (
+      screenshot: Screenshot,
+      rawX: number,
+      rawY: number,
+    ) => {
+      const { width, height } = previewDimensions;
+      const thresholds = getSnapThresholdPercent(width, height);
+      const threshold = Math.max(thresholds.x, thresholds.y);
+      return snapDragPosition(
+        rawX,
+        rawY,
+        collectAlignmentTargets(screenshot, {
+          type: selectedElement!.type,
+          id: selectedElement!.id,
+        }),
+        threshold,
       );
     };
 
@@ -1345,9 +1790,85 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
 
-      if (meta && key === "d") {
+      if (meta && key === "d" && !event.shiftKey) {
         event.preventDefault();
         duplicateActiveScreenshot();
+        return;
+      }
+
+      if (event.key === "?" && !meta) {
+        event.preventDefault();
+        setIsShortcutsOpen(true);
+        return;
+      }
+
+      if (event.altKey && event.key === "ArrowLeft") {
+        event.preventDefault();
+        navigateScreenshot("prev");
+        return;
+      }
+
+      if (event.altKey && event.key === "ArrowRight") {
+        event.preventDefault();
+        navigateScreenshot("next");
+        return;
+      }
+
+      if (
+        !meta &&
+        !event.altKey &&
+        !event.shiftKey &&
+        /^[1-9]$/.test(event.key)
+      ) {
+        const index = Number(event.key) - 1;
+        if (index < screenshots.length) {
+          event.preventDefault();
+          navigateScreenshot(index);
+        }
+        return;
+      }
+
+      if (meta && event.shiftKey && selectedElement) {
+        if (key === "h") {
+          event.preventDefault();
+          alignSelected("center-h");
+          return;
+        }
+        if (key === "v") {
+          event.preventDefault();
+          alignSelected("center-v");
+          return;
+        }
+        if (key === "m") {
+          event.preventDefault();
+          alignSelected("center");
+          return;
+        }
+        if (key === "d") {
+          event.preventDefault();
+          alignSelected("to-device");
+          return;
+        }
+      }
+
+      if (
+        (event.key === "[" || event.key === "]") &&
+        selectedElement &&
+        (selectedElement.type === "device" || selectedElement.type === "image")
+      ) {
+        event.preventDefault();
+        const target =
+          screenshots.find((s) => s.id === selectedElement.screenshotId) ??
+          activeScreenshot;
+        const direction = event.key === "[" ? -1 : 1;
+        const updates = getRotationStepUpdate(
+          selectedElement,
+          target,
+          direction,
+        );
+        if (updates) {
+          updateScreenshotById(selectedElement.screenshotId, updates);
+        }
         return;
       }
 
@@ -1365,39 +1886,69 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
         ["arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key) &&
         selectedElement
       ) {
+        const target =
+          screenshots.find((s) => s.id === selectedElement.screenshotId) ??
+          activeScreenshot;
+        if (isSelectedElementLocked(target, selectedElement)) return;
+
         event.preventDefault();
         const step = event.shiftKey ? 2 : 0.5;
         const dx =
           key === "arrowleft" ? -step : key === "arrowright" ? step : 0;
         const dy = key === "arrowup" ? -step : key === "arrowdown" ? step : 0;
-        const target =
-          screenshots.find((s) => s.id === selectedElement.screenshotId) ??
-          activeScreenshot;
 
         if (selectedElement.type === "headline") {
+          const { x, y, guides } = snapNudgePosition(
+            target,
+            target.headlineX + dx,
+            target.headlineY + dy,
+          );
+          showSnapGuides(guides);
           updateScreenshotById(selectedElement.screenshotId, {
-            headlineX: target.headlineX + dx,
-            headlineY: target.headlineY + dy,
+            headlineX: x,
+            headlineY: y,
           });
         } else if (selectedElement.type === "subheadline") {
+          const { x, y, guides } = snapNudgePosition(
+            target,
+            target.subheadlineX + dx,
+            target.subheadlineY + dy,
+          );
+          showSnapGuides(guides);
           updateScreenshotById(selectedElement.screenshotId, {
-            subheadlineX: target.subheadlineX + dx,
-            subheadlineY: target.subheadlineY + dy,
+            subheadlineX: x,
+            subheadlineY: y,
           });
         } else if (selectedElement.type === "device" && selectedElement.id) {
+          const device = target.devices.find(
+            (item) => item.id === selectedElement.id,
+          );
+          if (!device) return;
+          const { x, y, guides } = snapNudgePosition(
+            target,
+            device.x + dx,
+            device.y + dy,
+          );
+          showSnapGuides(guides);
           updateScreenshotById(selectedElement.screenshotId, {
-            devices: target.devices.map((device) =>
-              device.id === selectedElement.id
-                ? { ...device, x: device.x + dx, y: device.y + dy }
-                : device,
+            devices: target.devices.map((item) =>
+              item.id === selectedElement.id ? { ...item, x, y } : item,
             ),
           });
         } else if (selectedElement.type === "image" && selectedElement.id) {
+          const image = target.overlayImages.find(
+            (item) => item.id === selectedElement.id,
+          );
+          if (!image) return;
+          const { x, y, guides } = snapNudgePosition(
+            target,
+            image.x + dx,
+            image.y + dy,
+          );
+          showSnapGuides(guides);
           updateScreenshotById(selectedElement.screenshotId, {
-            overlayImages: target.overlayImages.map((image) =>
-              image.id === selectedElement.id
-                ? { ...image, x: image.x + dx, y: image.y + dy }
-                : image,
+            overlayImages: target.overlayImages.map((item) =>
+              item.id === selectedElement.id ? { ...item, x, y } : item,
             ),
           });
         }
@@ -1405,10 +1956,18 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
     };
 
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      if (snapGuideTimeoutRef.current !== null) {
+        window.clearTimeout(snapGuideTimeoutRef.current);
+      }
+    };
   }, [
     activeScreenshot,
+    alignSelected,
     duplicateActiveScreenshot,
+    navigateScreenshot,
+    previewDimensions,
     redo,
     removeDevice,
     removeOverlayImage,
@@ -1451,6 +2010,7 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
         selectedElement,
         setSelectedElement,
         isDragging,
+        snapGuides,
         headlineFontSize,
         setHeadlineFontSize,
         subheadlineFontSize,
@@ -1467,6 +2027,23 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
         templates: screenshotTemplates,
         isTemplatesOpen,
         setIsTemplatesOpen,
+        isShortcutsOpen,
+        setIsShortcutsOpen,
+        guideSettings,
+        setGuideSettings,
+        toggleGuideSetting,
+        exportScope,
+        setExportScope,
+        canvasZoom,
+        setCanvasZoom,
+        customGradientPresets,
+        saveCustomGradientPreset,
+        updateScreenshotLabel,
+        toggleScreenshotExport,
+        navigateScreenshot,
+        toggleLayerHidden,
+        toggleLayerLocked,
+        assignDeviceScreenshot,
         previewRef,
         fileInputRef,
         canvasContainerRef,
@@ -1488,6 +2065,13 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
         updateOverlayImageSize,
         updateOverlayImageLayer,
         updateOverlayImageRotation,
+        alignSelected,
+        distributeElements,
+        applySnapPresetToActive,
+        reorderScreenshots,
+        reorderLayers,
+        toggleOverlayLayer,
+        saveProjectFile,
         updateOverlayImageShadow,
         addDevice,
         selectDevice,
@@ -1500,6 +2084,7 @@ export const EditorProvider = ({ children }: { children: ReactNode }) => {
         sendImageToBack,
         handleFileUpload,
         handleExport,
+        importProjectFile,
         getBackgroundStyle,
         resetEditor,
       }}

@@ -45,6 +45,9 @@ const deviceAssetPath = (screenshotId: string, deviceId: string) =>
 const overlayAssetPath = (screenshotId: string, overlayId: string) =>
   `${ASSET_PREFIX}overlays/${screenshotId}-${overlayId}.png`;
 
+const backgroundAssetPath = (screenshotId: string) =>
+  `${ASSET_PREFIX}backgrounds/${screenshotId}.png`;
+
 export const packProjectAssets = (project: Project): PackedProject => {
   const assets = new Map<string, Blob>();
   const screenshots = project.screenshots.map((screenshot) =>
@@ -70,21 +73,31 @@ export const packProjectAssets = (project: Project): PackedProject => {
 const packScreenshotAssets = (
   screenshot: Screenshot,
   assets: Map<string, Blob>,
-): Screenshot => ({
-  ...screenshot,
-  devices: screenshot.devices.map((device) => {
-    if (!isDataUrl(device.screenshotSrc)) return device;
-    const path = deviceAssetPath(screenshot.id, device.id);
-    assets.set(path, dataUrlToBlob(device.screenshotSrc));
-    return { ...device, screenshotSrc: toAssetRef(path) };
-  }),
-  overlayImages: screenshot.overlayImages.map((overlay) => {
-    if (!isDataUrl(overlay.src)) return overlay;
-    const path = overlayAssetPath(screenshot.id, overlay.id);
-    assets.set(path, dataUrlToBlob(overlay.src));
-    return { ...overlay, src: toAssetRef(path) };
-  }),
-});
+): Screenshot => {
+  let backgroundImageSrc = screenshot.backgroundImageSrc;
+  if (isDataUrl(backgroundImageSrc)) {
+    const path = backgroundAssetPath(screenshot.id);
+    assets.set(path, dataUrlToBlob(backgroundImageSrc));
+    backgroundImageSrc = toAssetRef(path);
+  }
+
+  return {
+    ...screenshot,
+    backgroundImageSrc,
+    devices: screenshot.devices.map((device) => {
+      if (!isDataUrl(device.screenshotSrc)) return device;
+      const path = deviceAssetPath(screenshot.id, device.id);
+      assets.set(path, dataUrlToBlob(device.screenshotSrc));
+      return { ...device, screenshotSrc: toAssetRef(path) };
+    }),
+    overlayImages: screenshot.overlayImages.map((overlay) => {
+      if (!isDataUrl(overlay.src)) return overlay;
+      const path = overlayAssetPath(screenshot.id, overlay.id);
+      assets.set(path, dataUrlToBlob(overlay.src));
+      return { ...overlay, src: toAssetRef(path) };
+    }),
+  };
+};
 
 export const hydrateProjectAssets = async (
   project: Project,
@@ -101,25 +114,34 @@ export const hydrateProjectAssets = async (
 const hydrateScreenshotAssets = async (
   screenshot: Screenshot,
   assetResolver: (path: string) => Promise<Blob | null>,
-): Promise<Screenshot> => ({
-  ...screenshot,
-  devices: await Promise.all(
-    screenshot.devices.map(async (device) => {
-      if (!isAssetRef(device.screenshotSrc)) return device;
-      const blob = await assetResolver(fromAssetRef(device.screenshotSrc));
-      if (!blob) return { ...device, screenshotSrc: null };
-      return { ...device, screenshotSrc: await blobToDataUrl(blob) };
-    }),
-  ),
-  overlayImages: await Promise.all(
-    screenshot.overlayImages.map(async (overlay) => {
-      if (!isAssetRef(overlay.src)) return overlay;
-      const blob = await assetResolver(fromAssetRef(overlay.src));
-      if (!blob) return overlay;
-      return { ...overlay, src: await blobToDataUrl(blob) };
-    }),
-  ),
-});
+): Promise<Screenshot> => {
+  let backgroundImageSrc = screenshot.backgroundImageSrc ?? null;
+  if (isAssetRef(backgroundImageSrc)) {
+    const blob = await assetResolver(fromAssetRef(backgroundImageSrc));
+    backgroundImageSrc = blob ? await blobToDataUrl(blob) : null;
+  }
+
+  return {
+    ...screenshot,
+    backgroundImageSrc,
+    devices: await Promise.all(
+      screenshot.devices.map(async (device) => {
+        if (!isAssetRef(device.screenshotSrc)) return device;
+        const blob = await assetResolver(fromAssetRef(device.screenshotSrc));
+        if (!blob) return { ...device, screenshotSrc: null };
+        return { ...device, screenshotSrc: await blobToDataUrl(blob) };
+      }),
+    ),
+    overlayImages: await Promise.all(
+      screenshot.overlayImages.map(async (overlay) => {
+        if (!isAssetRef(overlay.src)) return overlay;
+        const blob = await assetResolver(fromAssetRef(overlay.src));
+        if (!blob) return overlay;
+        return { ...overlay, src: await blobToDataUrl(blob) };
+      }),
+    ),
+  };
+};
 
 export const downloadProjectArchive = async (
   packed: PackedProject,

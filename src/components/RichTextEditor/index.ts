@@ -1,48 +1,34 @@
 /**
  * RichTextEditor Module
- *
- * A lightweight WYSIWYG rich text editor with formatting toolbar.
- * Supports text formatting, colors, and alignment.
- *
- * @module RichTextEditor
- *
- * @example
- * // Basic usage
- * import { RichTextEditor } from './components/RichTextEditor';
- *
- * <RichTextEditor
- *   value={content}
- *   onChange={setContent}
- *   placeholder="Enter text..."
- * />
- *
- * @example
- * // Using individual components
- * import {
- *   EditorToolbar,
- *   EditorContent,
- *   ToolbarButton,
- *   Tooltip,
- * } from './components/RichTextEditor';
  */
 
-// Main component
 export { RichTextEditor } from "./RichTextEditor";
-
-// Sub-components
 export { EditorToolbar } from "./EditorToolbar";
 export { EditorContent } from "./EditorContent";
 export { ToolbarButton } from "./ToolbarButton";
 export { ToolbarSeparator } from "./ToolbarSeparator";
 export { ColorPicker } from "./ColorPicker";
+export { ColorMenu } from "./ColorMenu";
 export { Tooltip } from "./Tooltip";
-
-// Hook
 export { useRichTextEditor } from "./useRichTextEditor";
-
-// Types
-export type { RichTextEditorProps, ActiveStyles, ToolbarButtonConfig } from "./types";
-
-// Utilities and constants
-export { DEFAULT_ACTIVE_STYLES, DEFAULT_TEXT_COLOR, ICON_SIZE, STYLES } from "./constants";
-export { isContentEmpty, getActiveStyles, executeCommand } from "./utils";
+export type {
+  RichTextEditorProps,
+  ActiveStyles,
+  ToolbarButtonConfig,
+  CaseTransform,
+} from "./types";
+export {
+  DEFAULT_ACTIVE_STYLES,
+  DEFAULT_TEXT_COLOR,
+  ICON_SIZE,
+  STYLES,
+  TEXT_COLOR_PRESETS,
+  HIGHLIGHT_COLOR_PRESETS,
+} from "./constants";
+export {
+  isContentEmpty,
+  getActiveStyles,
+  executeCommand,
+  transformCase,
+  getPlainTextLength,
+} from "./utils";

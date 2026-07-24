@@ -1,63 +1,62 @@
-/**
- * EditorContent Component
- *
- * Contenteditable area for text input.
- */
-
-import type { RefObject } from "react";
+import type { RefObject, KeyboardEvent } from "react";
 import { STYLES } from "./constants";
 
 interface EditorContentProps {
-  /** Ref for the contenteditable element */
   editorRef: RefObject<HTMLDivElement | null>;
-  /** Placeholder text */
   placeholder: string;
-  /** Whether the editor is empty */
   isEmpty: boolean;
-  /** Input change handler */
+  characterCount: number;
+  size?: "sm" | "md" | "lg";
   onInput: () => void;
-  /** Blur handler */
   onBlur: () => void;
+  onKeyDown?: (event: KeyboardEvent<HTMLDivElement>) => void;
 }
 
-/**
- * EditorContent - Contenteditable text area
- *
- * The main editing area where users type and format text.
- * Shows placeholder when empty.
- *
- * @param props - Component props
- *
- * @example
- * <EditorContent
- *   editorRef={editorRef}
- *   placeholder="Type something..."
- *   isEmpty={isEmpty}
- *   onInput={handleInput}
- *   onBlur={triggerChange}
- * />
- */
+const editorSizeClass = {
+  sm: STYLES.editorSm,
+  md: STYLES.editorMd,
+  lg: STYLES.editorLg,
+} as const;
+
+const placeholderSizeClass = {
+  sm: STYLES.placeholderSm,
+  md: STYLES.placeholderMd,
+  lg: STYLES.placeholderLg,
+} as const;
+
 export const EditorContent = ({
   editorRef,
   placeholder,
   isEmpty,
+  characterCount,
+  size = "md",
   onInput,
   onBlur,
+  onKeyDown,
 }: EditorContentProps) => (
   <div className="relative">
     <div
       ref={editorRef}
       contentEditable
       suppressContentEditableWarning
+      spellCheck
       onInput={onInput}
       onBlur={onBlur}
-      className={STYLES.editor}
+      onKeyDown={onKeyDown}
+      className={`${STYLES.editor} ${editorSizeClass[size]}`}
       data-placeholder={placeholder}
       style={{ fontFamily: "Inter, system-ui, sans-serif" }}
     />
-    {/* Fallback placeholder for browsers that don't support :empty */}
-    {isEmpty && !editorRef.current?.innerHTML && (
-      <div className={STYLES.placeholder}>{placeholder}</div>
+    {isEmpty && (
+      <div className={`${STYLES.placeholder} ${placeholderSizeClass[size]}`}>
+        {placeholder}
+      </div>
     )}
+    <div className={STYLES.footer}>
+      <span>Select text to format</span>
+      <span className="tabular-nums">
+        {characterCount} {characterCount === 1 ? "char" : "chars"}
+      </span>
+    </div>
   </div>
 );

@@ -115,6 +115,10 @@ export type Screenshot = {
   subheadline: string;
   backgroundColor: string;
   backgroundMode: "solid" | "gradient" | "image";
+  backgroundImageSrc: string | null;
+  backgroundImageZoom: number;
+  backgroundImageOffsetX: number;
+  backgroundImageOffsetY: number;
   gradientPresetId: string | null;
   customGradient?: CustomGradient | null;
   textColor: string;

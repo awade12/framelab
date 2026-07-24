@@ -1,72 +1,45 @@
-/**
- * useRichTextEditor Hook
- *
- * Custom hook managing rich text editor state and formatting.
- */
-
-import { useRef, useEffect, useState, useCallback } from "react";
-import type { ActiveStyles } from "./types";
+import { useRef, useEffect, useState, useCallback, type KeyboardEvent } from "react";
+import type { ActiveStyles, CaseTransform } from "./types";
 import {
   DEFAULT_ACTIVE_STYLES,
   DEFAULT_BACKGROUND_COLOR,
   DEFAULT_TEXT_COLOR,
 } from "./constants";
-import { isContentEmpty, getActiveStyles, executeCommand } from "./utils";
+import {
+  isContentEmpty,
+  getActiveStyles,
+  executeCommand,
+  getPlainTextLength,
+  transformSelectionCase,
+} from "./utils";
 import {
   normalizeRichTextHighlightRoot,
   normalizeRichTextHighlights,
 } from "../../lib/rich-text-highlight";
 
 interface UseRichTextEditorOptions {
-  /** Initial/controlled HTML value */
   value: string;
-  /** Callback when content changes */
   onChange: (html: string) => void;
 }
 
 interface UseRichTextEditorReturn {
-  /** Ref for the contenteditable div */
   editorRef: React.RefObject<HTMLDivElement | null>;
-  /** Current text color */
   textColor: string;
-  /** Current text highlight color */
   backgroundColor: string;
-  /** Whether the editor is empty */
   isEmpty: boolean;
-  /** Current active formatting styles */
+  characterCount: number;
   activeStyles: ActiveStyles;
-  /** Execute a formatting command */
   execCommand: (command: string, value?: string) => void;
-  /** Handle input changes */
   handleInput: () => void;
-  /** Handle color picker change */
-  handleColorChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  /** Handle highlight color picker change */
-  handleBackgroundColorChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  /** Trigger change callback */
+  handleColorChange: (color: string) => void;
+  handleBackgroundColorChange: (color: string) => void;
+  handleClearHighlight: () => void;
+  handleCaseTransform: (mode: CaseTransform) => void;
+  handleKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void;
   triggerChange: () => void;
-  /** Update active styles from selection */
   updateActiveStyles: () => void;
 }
 
-/**
- * useRichTextEditor - Manages rich text editor state
- *
- * Handles formatting commands, selection tracking, and content synchronization.
- *
- * @param options - Hook configuration
- * @param options.value - Controlled HTML value
- * @param options.onChange - Change callback
- * @returns Editor state and handlers
- *
- * @example
- * const {
- *   editorRef,
- *   activeStyles,
- *   execCommand,
- *   handleInput,
- * } = useRichTextEditor({ value, onChange });
- */
 export const useRichTextEditor = ({
   value,
   onChange,
@@ -77,26 +50,25 @@ export const useRichTextEditor = ({
     DEFAULT_BACKGROUND_COLOR,
   );
   const [isEmpty, setIsEmpty] = useState(true);
+  const [characterCount, setCharacterCount] = useState(0);
   const [activeStyles, setActiveStyles] = useState<ActiveStyles>(
     DEFAULT_ACTIVE_STYLES,
   );
 
-  // Update active styles from current selection
   const updateActiveStyles = useCallback(() => {
     setActiveStyles(getActiveStyles());
   }, []);
 
-  // Trigger onChange callback
   const triggerChange = useCallback(() => {
     if (editorRef.current) {
       normalizeRichTextHighlightRoot(editorRef.current);
       const html = editorRef.current.innerHTML;
       setIsEmpty(isContentEmpty(html));
+      setCharacterCount(getPlainTextLength(html));
       onChange(html);
     }
   }, [onChange]);
 
-  // Execute formatting command
   const execCommand = useCallback(
     (command: string, commandValue?: string) => {
       editorRef.current?.focus();
@@ -107,33 +79,72 @@ export const useRichTextEditor = ({
     [updateActiveStyles, triggerChange],
   );
 
-  // Handle input changes
   const handleInput = useCallback(() => {
     triggerChange();
     updateActiveStyles();
   }, [triggerChange, updateActiveStyles]);
 
-  // Handle color change
   const handleColorChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const color = e.target.value;
+    (color: string) => {
       setTextColor(color);
       execCommand("foreColor", color);
     },
     [execCommand],
   );
 
-  // Handle highlight color change
   const handleBackgroundColorChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const color = e.target.value;
+    (color: string) => {
       setBackgroundColor(color);
       execCommand("hiliteColor", color);
     },
     [execCommand],
   );
 
-  // Sync external value changes
+  const handleClearHighlight = useCallback(() => {
+    execCommand("removeHighlight");
+  }, [execCommand]);
+
+  const handleCaseTransform = useCallback(
+    (mode: CaseTransform) => {
+      editorRef.current?.focus();
+      if (transformSelectionCase(mode)) {
+        updateActiveStyles();
+        triggerChange();
+      }
+    },
+    [triggerChange, updateActiveStyles],
+  );
+
+  const handleKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLDivElement>) => {
+      const mod = event.metaKey || event.ctrlKey;
+      if (!mod) return;
+
+      const key = event.key.toLowerCase();
+
+      if (key === "b") {
+        event.preventDefault();
+        execCommand("bold");
+        return;
+      }
+      if (key === "i") {
+        event.preventDefault();
+        execCommand("italic");
+        return;
+      }
+      if (key === "u") {
+        event.preventDefault();
+        execCommand("underline");
+        return;
+      }
+      if (event.shiftKey && key === "x") {
+        event.preventDefault();
+        execCommand("strikeThrough");
+      }
+    },
+    [execCommand],
+  );
+
   useEffect(() => {
     const normalizedValue = normalizeRichTextHighlights(value);
 
@@ -143,10 +154,10 @@ export const useRichTextEditor = ({
     ) {
       editorRef.current.innerHTML = normalizedValue;
       setIsEmpty(isContentEmpty(normalizedValue));
+      setCharacterCount(getPlainTextLength(normalizedValue));
     }
   }, [value]);
 
-  // Listen for selection changes
   useEffect(() => {
     const handleSelectionChange = () => {
       const selection = window.getSelection();
@@ -165,11 +176,15 @@ export const useRichTextEditor = ({
     textColor,
     backgroundColor,
     isEmpty,
+    characterCount,
     activeStyles,
     execCommand,
     handleInput,
     handleColorChange,
     handleBackgroundColorChange,
+    handleClearHighlight,
+    handleCaseTransform,
+    handleKeyDown,
     triggerChange,
     updateActiveStyles,
   };

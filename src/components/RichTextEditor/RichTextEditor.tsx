@@ -1,59 +1,30 @@
-/**
- * RichTextEditor Component
- *
- * A lightweight rich text editor with formatting toolbar.
- *
- * Features:
- * - Bold, italic, underline formatting
- * - Text and highlight color selection
- * - Text alignment (left, center, right)
- * - Placeholder support
- * - Selection-aware toolbar state
- */
-
 import type { RichTextEditorProps } from "./types";
 import { STYLES } from "./constants";
 import { useRichTextEditor } from "./useRichTextEditor";
 import { EditorToolbar } from "./EditorToolbar";
 import { EditorContent } from "./EditorContent";
 
-/**
- * RichTextEditor - Lightweight WYSIWYG editor
- *
- * A simple rich text editor using contentEditable with a formatting toolbar.
- * Outputs HTML that can be used directly in the application.
- *
- * @param props - Component props
- * @param props.value - Controlled HTML value
- * @param props.onChange - Callback when content changes
- * @param props.placeholder - Placeholder text when empty
- * @param props.className - Additional CSS classes
- *
- * @example
- * const [content, setContent] = useState("");
- *
- * <RichTextEditor
- *   value={content}
- *   onChange={setContent}
- *   placeholder="Enter headline..."
- * />
- */
 export const RichTextEditor = ({
   value,
   onChange,
   placeholder = "Type something...",
   className = "",
+  size = "md",
 }: RichTextEditorProps) => {
   const {
     editorRef,
     textColor,
     backgroundColor,
     isEmpty,
+    characterCount,
     activeStyles,
     execCommand,
     handleInput,
     handleColorChange,
     handleBackgroundColorChange,
+    handleClearHighlight,
+    handleCaseTransform,
+    handleKeyDown,
     triggerChange,
   } = useRichTextEditor({ value, onChange });
 
@@ -66,13 +37,18 @@ export const RichTextEditor = ({
         onCommand={execCommand}
         onColorChange={handleColorChange}
         onBackgroundColorChange={handleBackgroundColorChange}
+        onClearHighlight={handleClearHighlight}
+        onCaseTransform={handleCaseTransform}
       />
       <EditorContent
         editorRef={editorRef}
         placeholder={placeholder}
         isEmpty={isEmpty}
+        characterCount={characterCount}
+        size={size}
         onInput={handleInput}
         onBlur={triggerChange}
+        onKeyDown={handleKeyDown}
       />
     </div>
   );

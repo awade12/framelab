@@ -36,7 +36,7 @@ Everything runs client-side. Projects auto-save to `localStorage`, so you can cl
 
 ### Backgrounds & Typography
 
-- 60+ solid color presets plus custom picker
+- 60+ solid color presets, gradients, and custom image backgrounds
 - 6 gradient presets — Sunset, Ocean, Mint, Berry, Royal, Rose
 - Rich text for headlines and subheadlines — bold, italic, underline, color, alignment, rounded highlights
 - Google Fonts catalog with categories, search, lazy loading, and live preview

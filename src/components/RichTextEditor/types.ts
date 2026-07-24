@@ -1,45 +1,30 @@
 /**
  * RichTextEditor Types
- *
- * TypeScript interfaces and types for the RichTextEditor components.
  */
 
-/**
- * Active formatting styles state
- */
 export interface ActiveStyles {
   bold: boolean;
   italic: boolean;
   underline: boolean;
+  strikethrough: boolean;
   alignLeft: boolean;
   alignCenter: boolean;
   alignRight: boolean;
 }
 
-/**
- * Toolbar button configuration
- */
 export interface ToolbarButtonConfig {
-  /** Unique identifier */
   id: string;
-  /** execCommand command name */
   command: string;
-  /** Tooltip label */
   tooltip: string;
-  /** Key in ActiveStyles to check for active state */
   activeKey?: keyof ActiveStyles;
 }
 
-/**
- * Props for the main RichTextEditor component
- */
+export type CaseTransform = "upper" | "lower" | "title";
+
 export interface RichTextEditorProps {
-  /** HTML content value */
   value: string;
-  /** Callback when content changes */
   onChange: (html: string) => void;
-  /** Placeholder text when empty */
   placeholder?: string;
-  /** Additional CSS classes */
   className?: string;
+  size?: "sm" | "md" | "lg";
 }

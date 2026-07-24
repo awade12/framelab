@@ -22,6 +22,7 @@ describe("parseRichText", () => {
         bold: false,
         italic: false,
         underline: false,
+        strikethrough: false,
         color: "rgb(255, 0, 0)",
         backgroundColor: "rgb(255, 255, 0)",
       },
@@ -32,6 +33,11 @@ describe("parseRichText", () => {
     const [segment] = parseRichText("<mark>Highlighted</mark>", "#ffffff");
 
     expect(segment.backgroundColor).toBe("yellow");
+  });
+
+  it("parses strikethrough tags", () => {
+    const [segment] = parseRichText("<s>Old price</s>", "#ffffff");
+    expect(segment?.strikethrough).toBe(true);
   });
 });
 
@@ -75,6 +81,7 @@ describe("renderRichText", () => {
           bold: false,
           italic: false,
           underline: false,
+          strikethrough: false,
           color: "#111111",
           backgroundColor: "#ffff00",
         },

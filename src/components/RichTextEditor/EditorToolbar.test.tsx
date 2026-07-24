@@ -5,13 +5,14 @@ import { describe, expect, it, vi } from "vitest";
 import { EditorToolbar } from "./EditorToolbar";
 
 describe("EditorToolbar", () => {
-  it("renders custom tooltip content without native title attributes", () => {
+  it("renders formatting controls with custom tooltips", () => {
     render(
       <EditorToolbar
         activeStyles={{
           bold: false,
           italic: false,
           underline: false,
+          strikethrough: false,
           alignLeft: true,
           alignCenter: false,
           alignRight: false,
@@ -21,6 +22,8 @@ describe("EditorToolbar", () => {
         onCommand={vi.fn()}
         onColorChange={vi.fn()}
         onBackgroundColorChange={vi.fn()}
+        onClearHighlight={vi.fn()}
+        onCaseTransform={vi.fn()}
       />,
     );
 
@@ -28,12 +31,12 @@ describe("EditorToolbar", () => {
     expect(boldButton.getAttribute("title")).toBeNull();
     expect(screen.getByText("Bold (Ctrl+B)")).toBeDefined();
 
-    const textColorInput = screen.getByLabelText("Text Color");
-    expect(textColorInput.getAttribute("title")).toBeNull();
-    expect(screen.getByText("Text Color")).toBeDefined();
-
-    const backgroundColorInput = screen.getByLabelText("Text Background Color");
-    expect(backgroundColorInput.getAttribute("title")).toBeNull();
-    expect(screen.getByText("Text Background Color")).toBeDefined();
+    expect(screen.getByRole("button", { name: "Text Color" })).toBeDefined();
+    expect(screen.getByRole("button", { name: "Highlight Color" })).toBeDefined();
+    expect(
+      screen.getByRole("button", { name: "Strikethrough (Ctrl+Shift+X)" }),
+    ).toBeDefined();
+    expect(screen.getByRole("button", { name: "Clear Formatting" })).toBeDefined();
+    expect(screen.getByRole("button", { name: "UPPERCASE" })).toBeDefined();
   });
 });

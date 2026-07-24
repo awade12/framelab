@@ -1283,10 +1283,38 @@ export const renderExportFiles = async ({
       gradient.addColorStop(0, from);
       gradient.addColorStop(1, to);
       ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    } else if (
+      screenshot.backgroundMode === "image" &&
+      screenshot.backgroundImageSrc
+    ) {
+      ctx.fillStyle = screenshot.backgroundColor;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      const bgImg = new Image();
+      bgImg.crossOrigin = "anonymous";
+      await new Promise<void>((resolve) => {
+        bgImg.onload = () => {
+          const fit = getCoverImageRect(
+            bgImg.naturalWidth || bgImg.width,
+            bgImg.naturalHeight || bgImg.height,
+            0,
+            0,
+            canvas.width,
+            canvas.height,
+            screenshot.backgroundImageZoom ?? 100,
+            screenshot.backgroundImageOffsetX ?? 0,
+            screenshot.backgroundImageOffsetY ?? 0,
+          );
+          ctx.drawImage(bgImg, fit.x, fit.y, fit.width, fit.height);
+          resolve();
+        };
+        bgImg.onerror = () => resolve();
+        bgImg.src = screenshot.backgroundImageSrc!;
+      });
     } else {
       ctx.fillStyle = screenshot.backgroundColor;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     // Helper to draw overlay images
     const drawOverlayImages = async (layer: "behind" | "front") => {

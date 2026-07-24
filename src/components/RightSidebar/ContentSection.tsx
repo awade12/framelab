@@ -37,6 +37,7 @@ export const ContentSection = ({
           value={screenshot.headline}
           onChange={(html) => onUpdateScreenshot({ headline: html })}
           placeholder="Enter headline..."
+          size="lg"
         />
       </div>
 
@@ -46,6 +47,7 @@ export const ContentSection = ({
           value={screenshot.subheadline}
           onChange={(html) => onUpdateScreenshot({ subheadline: html })}
           placeholder="Enter subheadline..."
+          size="md"
         />
       </div>
     </div>

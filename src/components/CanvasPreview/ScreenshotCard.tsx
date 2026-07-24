@@ -16,6 +16,7 @@ import { TextElement } from "./TextElement";
 import { DeviceContainer } from "./DeviceContainer";
 import { isElementSelected } from "./utils";
 import { Z_INDEX } from "./constants";
+import { getScreenImageStyle } from "../../lib/screen-image";
 
 interface ScreenshotCardProps {
   screenshot: Screenshot;
@@ -193,6 +194,24 @@ export const ScreenshotCard = memo(function ScreenshotCard({
         }
       }}
     >
+      {screenshot.backgroundMode === "image" &&
+        screenshot.backgroundImageSrc && (
+          <img
+            src={screenshot.backgroundImageSrc}
+            alt=""
+            aria-hidden
+            draggable={false}
+            className="pointer-events-none select-none"
+            style={{
+              ...getScreenImageStyle(
+                screenshot.backgroundImageZoom ?? 100,
+                screenshot.backgroundImageOffsetX ?? 0,
+                screenshot.backgroundImageOffsetY ?? 0,
+              ),
+              zIndex: 0,
+            }}
+          />
+        )}
       {screenIndex !== undefined && onReorderDragStart && (
         <div
           draggable={!isEditingLabel}

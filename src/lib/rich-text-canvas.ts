@@ -15,6 +15,7 @@ export interface StyledSegment {
   bold: boolean;
   italic: boolean;
   underline: boolean;
+  strikethrough: boolean;
   color: string;
   backgroundColor: string | null;
 }
@@ -49,6 +50,7 @@ export function parseRichText(html: string, defaultColor: string): StyledSegment
         bold: false,
         italic: false,
         underline: false,
+        strikethrough: false,
         color: defaultColor,
         backgroundColor: null,
       },
@@ -59,6 +61,7 @@ export function parseRichText(html: string, defaultColor: string): StyledSegment
     bold: boolean;
     italic: boolean;
     underline: boolean;
+    strikethrough: boolean;
     color: string;
     backgroundColor: string | null;
   }
@@ -73,6 +76,7 @@ export function parseRichText(html: string, defaultColor: string): StyledSegment
           bold: state.bold,
           italic: state.italic,
           underline: state.underline,
+          strikethrough: state.strikethrough,
           color: state.color,
           backgroundColor: state.backgroundColor,
         });
@@ -100,6 +104,11 @@ export function parseRichText(html: string, defaultColor: string): StyledSegment
         case "u":
           childState.underline = true;
           break;
+        case "s":
+        case "strike":
+        case "del":
+          childState.strikethrough = true;
+          break;
         case "font":
           const fontColor = element.getAttribute("color");
           if (fontColor) {
@@ -124,6 +133,9 @@ export function parseRichText(html: string, defaultColor: string): StyledSegment
           if (style.textDecoration?.includes("underline")) {
             childState.underline = true;
           }
+          if (style.textDecoration?.includes("line-through")) {
+            childState.strikethrough = true;
+          }
           if (style.color) {
             childState.color = style.color;
           }
@@ -137,6 +149,7 @@ export function parseRichText(html: string, defaultColor: string): StyledSegment
             bold: state.bold,
             italic: state.italic,
             underline: state.underline,
+            strikethrough: state.strikethrough,
             color: state.color,
             backgroundColor: state.backgroundColor,
           });
@@ -154,6 +167,7 @@ export function parseRichText(html: string, defaultColor: string): StyledSegment
     bold: false,
     italic: false,
     underline: false,
+    strikethrough: false,
     color: defaultColor,
     backgroundColor: null,
   });
@@ -431,6 +445,16 @@ export function renderRichText(
         ctx.beginPath();
         ctx.moveTo(x, underlineY);
         ctx.lineTo(x + width, underlineY);
+        ctx.stroke();
+      }
+
+      if (segment.strikethrough) {
+        const strikeY = currentY + fontSize * 0.35;
+        ctx.strokeStyle = segment.color;
+        ctx.lineWidth = Math.max(1, fontSize / 15);
+        ctx.beginPath();
+        ctx.moveTo(x, strikeY);
+        ctx.lineTo(x + width, strikeY);
         ctx.stroke();
       }
     }
